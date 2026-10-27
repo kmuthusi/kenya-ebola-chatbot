@@ -3,19 +3,20 @@
 This repository provides a single-host deployment package for the public-facing
 Streamlit app, Ollama and a persistent Chroma index. The web page exposes a
 chat with cited answers and collapsible source passages. Conversation turns
-are held in the current Streamlit session. Model choice, source directory, passage count
+are held in the current Streamlit session. Model choice, PDF path, passage count
 and index creation are operator settings. Obvious individual care and dosing
 requests are redirected to health professionals; this rule-based guard is not a
 complete clinical safety system.
 
 ## Before public launch
 
-1. Have clinical and public health reviewers approve the WHO PDF versions,
+1. Have Kenyan clinical and public health reviewers approve the PDF version,
    public wording, example answers and escalation message. The citation checker
    checks page numbers; it does **not** establish clinical correctness.
-2. Confirm permission to host and reproduce excerpts from the WHO PDFs. The
-   directory is mounted at runtime and excluded from the application image.
-   Review the chosen model's license and terms for public service use as well.
+2. Confirm permission to host and reproduce passages from the Kenya Ministry of
+   Health PDF. Its copyright page states that rights are reserved. The PDF is
+   mounted at runtime and excluded from the application image. Review the
+   chosen model's license and terms for public service use as well.
 3. Test representative questions, including vague symptoms, suspected cases,
    emergency requests, dosing requests, out-of-scope questions and attempts to
    override the assistant's instructions. Record reviewer sign-off before
@@ -31,13 +32,13 @@ complete clinical safety system.
 
 ## Start on a deployment host
 
-Install Docker Engine and the Docker Compose plugin. Place the reviewed WHO PDFs
-in one directory on the host. Copy `.env.example` to `.env`, then set
-`GUIDELINE_SOURCE_DIR` to that directory's absolute host path. For example:
+Install Docker Engine and the Docker Compose plugin. Place the reviewed guideline
+PDF on the host. Copy `.env.example` to `.env`, then set `GUIDELINE_SOURCE` to
+the PDF's absolute host path. For example:
 
 ```sh
 cp .env.example .env
-# Edit GUIDELINE_SOURCE_DIR in .env before starting.
+# Edit GUIDELINE_SOURCE in .env before starting.
 docker compose config --quiet
 docker compose up -d --build
 docker compose ps
@@ -68,8 +69,8 @@ docker compose -f compose.yaml -f compose.gpu.yaml up -d --build
 
 The app and index share a named volume; Ollama models use a separate named
 volume. Back up both volumes if fast recovery matters. Run one app replica with
-this local Chroma store. To change the PDFs, stop the stack, update the mounted directory, and start
-it again so the indexer rebuilds before the app serves requests.
+this local Chroma store. To change the PDF, stop the stack, update the mounted
+file, and start it again so the indexer rebuilds before the app serves requests.
 
 ## Operating the public service
 
@@ -78,8 +79,9 @@ it again so the indexer rebuilds before the app serves requests.
   in-app generations; extra users receive a busy message.
 - Avoid collecting patient names, contact details or medical records. Review
   proxy and application logs for accidental question or answer retention.
-- Keep the review process active when WHO guidance changes. All PDFs in
-  `who_guidelines/` are indexed by this assistant.
+- Keep the review process active when the Kenya or WHO guidance changes. The
+  WHO PDFs in `who_guidelines/` are reference downloads and are **not** indexed
+  by this assistant.
 - Pin the exact container image digests and Python dependency set used for a
   release, and rebuild after security updates. The supplied Compose file uses
   the current official Ollama image tag as a starting point.

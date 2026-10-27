@@ -19,7 +19,6 @@ def _hash_manifest(items: List[Dict[str, Any]]) -> str:
     """Hash source content, not just page lengths, so edits trigger reindexing."""
     digest = hashlib.sha256()
     for item in items:
-        digest.update(str(item.get("source", "")).encode())
         digest.update(str(item.get("page")).encode())
         digest.update(str(item.get("text", "")).encode())
     return digest.hexdigest()
@@ -28,7 +27,7 @@ def _hash_manifest(items: List[Dict[str, Any]]) -> str:
 class VectorStore:
     def __init__(
         self,
-        collection_name: str = "who_ebola_guidelines_ollama",
+        collection_name: str = "kenya_ebola_guideline_ollama",
         chroma_dir: str = "chroma_db",
         embed_model: Optional[str] = None,
     ):
@@ -82,7 +81,7 @@ class VectorStore:
         records = []
         for source_index, raw in enumerate(raw_chunks):
             for sub_index, text in enumerate(self._chunk_text(raw["text"])):
-                records.append((source_index, sub_index, text, raw.get("page"), raw.get("source", "")))
+                records.append((source_index, sub_index, text, raw.get("page")))
 
         for start in range(0, len(records), batch_size):
             batch = records[start:start + batch_size]
@@ -94,10 +93,10 @@ class VectorStore:
             self.collection.add(
                 ids=[
                     f"chunk-{source}-{sub}-{hashlib.sha1(text.encode()).hexdigest()[:12]}"
-                    for source, sub, text, _, _ in batch
+                    for source, sub, text, _ in batch
                 ],
                 documents=[record[2] for record in batch],
-                metadatas=[{"page": record[3], "source": record[4]} for record in batch],
+                metadatas=[{"page": record[3]} for record in batch],
                 embeddings=embeddings,
             )
 
@@ -133,7 +132,6 @@ class VectorStore:
                 {
                     "text": document,
                     "page": meta.get("page"),
-                    "source": meta.get("source", ""),
                     "score": (1.0 / (1.0 + distance)) if distance is not None else None,
                 }
             )

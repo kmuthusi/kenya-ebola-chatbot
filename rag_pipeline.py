@@ -88,23 +88,21 @@ def management_evidence(pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def exclude_bibliography(question: str, candidates: List[Dict[str, Any]],
                          pages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Exclude each PDF's reference section from ordinary answers."""
+    """Keep reference-list chunks out of ordinary guideline answers."""
     if re.search(r"\b(references?|bibliography|citations?)\b", question, re.I):
         return candidates
-    first_reference_page = {}
-    for page in pages:
-        source = page.get("source", "")
-        if source not in first_reference_page and re.search(
-            r"(?im)^\s*(?:\d+\.?\s+)?References\s*$", page["text"][:500]
-        ):
-            first_reference_page[source] = page["page"]
-    filtered = [
-        item for item in candidates
-        if item.get("source", "") not in first_reference_page
-        or item.get("page", 0) < first_reference_page[item.get("source", "")]
-    ]
+    first_reference_page = next(
+        (
+            page["page"]
+            for page in pages
+            if re.search(r"(?m)^\s*\d+\.\s+References\s*$", page["text"][:250])
+        ),
+        None,
+    )
+    if first_reference_page is None:
+        return candidates
+    filtered = [item for item in candidates if item.get("page", 0) < first_reference_page]
     return filtered or candidates
-
 
 def _simple_relevance_score(candidate: Dict[str, Any]) -> float:
     """Combine embedding similarity (already inverted in vector_store) + page bonus."""

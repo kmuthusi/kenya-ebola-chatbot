@@ -1,8 +1,8 @@
 # WHO Ebola and filovirus reference documents
 
 Downloaded from official WHO publication pages on 27 October 2026. These are
-reference copies. The chatbot indexes every PDF in this directory; adding or
-changing a PDF triggers a refresh of the local index.
+reference copies; the chatbot currently indexes only the Kenya guideline in the
+repository root.
 
 | Local file | WHO source | Type |
 | --- | --- | --- |

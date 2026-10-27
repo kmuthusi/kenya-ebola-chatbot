@@ -28,15 +28,15 @@ services:
 
   indexer:
     build: .
-    image: who-ebola-assistant:local
-    command: ["python", "simple_rag.py", "--index", "--source", "/app/who_guidelines"]
+    image: kenya-ebola-assistant:local
+    command: ["python", "simple_rag.py", "--index", "--pdf", "/app/guideline.pdf"]
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text:latest}
     volumes:
       - type: bind
-        source: ${GUIDELINE_SOURCE_DIR:-./who_guidelines}
-        target: /app/who_guidelines
+        source: ${GUIDELINE_SOURCE:-./Final Case Management Guidelines for Ebola Virus- 23102026 V5.pdf}
+        target: /app/guideline.pdf
         read_only: true
       - chroma_data:/app/chroma_db
     depends_on:
@@ -46,20 +46,20 @@ services:
 
   app:
     build: .
-    image: who-ebola-assistant:local
+    image: kenya-ebola-assistant:local
     restart: unless-stopped
     environment:
       OLLAMA_HOST: http://ollama:11434
       OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.1:8b}
       OLLAMA_EMBED_MODEL: ${OLLAMA_EMBED_MODEL:-nomic-embed-text:latest}
       OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
-      GUIDELINE_SOURCE_DIR: /app/who_guidelines
+      GUIDELINE_PDF_PATH: /app/guideline.pdf
       EVIDENCE_PASSAGES: ${EVIDENCE_PASSAGES:-5}
       MAX_CONCURRENT_ANSWERS: ${MAX_CONCURRENT_ANSWERS:-2}
     volumes:
       - type: bind
-        source: ${GUIDELINE_SOURCE_DIR:-./who_guidelines}
-        target: /app/who_guidelines
+        source: ${GUIDELINE_SOURCE:-./Final Case Management Guidelines for Ebola Virus- 23102026 V5.pdf}
+        target: /app/guideline.pdf
         read_only: true
       - chroma_data:/app/chroma_db
     ports:

@@ -1,4 +1,4 @@
-"""Streamlit interface for the WHO Ebola Guidance Assistant."""
+"""Streamlit interface for the Kenya Ebola Care Guide."""
 
 import os
 import time
@@ -10,7 +10,7 @@ import streamlit as st
 
 from model_warmup import warm_models
 from public_safety import CARE_REDIRECT, requires_professional_care
-from retrievers import DEFAULT_SOURCE, GuidelineRetriever
+from retrievers import DEFAULT_PDF, GuidelineRetriever
 from simple_rag import DEFAULT_MODEL, SimpleAssistantRAG, SimpleAssistantRequest
 from vector_store import DEFAULT_EMBED_MODEL
 
@@ -24,7 +24,7 @@ def answer_slots() -> BoundedSemaphore:
 
 
 @st.cache_resource(show_spinner=False, ttl="25m")
-def start_model_warmup(chat_model: str, embed_model: str, source_path: str) -> Future:
+def start_model_warmup(chat_model: str, embed_model: str, pdf_path: str) -> Future:
     """Prepare models and PDF without delaying the app page."""
     future = Future()
 
@@ -33,7 +33,7 @@ def start_model_warmup(chat_model: str, embed_model: str, source_path: str) -> F
             started = time.perf_counter()
             with ThreadPoolExecutor(max_workers=2) as pool:
                 models = pool.submit(warm_models, chat_model, embed_model)
-                pages = pool.submit(GuidelineRetriever(source_path).read_and_chunk)
+                pages = pool.submit(GuidelineRetriever(pdf_path).read_and_chunk)
                 models.result()
                 pages.result()
             future.set_result(round(time.perf_counter() - started, 2))
@@ -45,7 +45,7 @@ def start_model_warmup(chat_model: str, embed_model: str, source_path: str) -> F
     return future
 
 
-st.set_page_config(page_title="WHO Ebola Guidance Assistant")
+st.set_page_config(page_title="Kenya Ebola Care Guide")
 st.markdown(
     """
     <style>
@@ -66,21 +66,21 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-st.title("WHO Ebola Guidance Assistant")
+st.title("Kenya Ebola Care Guide")
 st.info(
-    "Ask questions about WHO guidance on Ebola and Marburg disease. "
-    "Answers cite the source document and PDF page, so you can check the guidance."
+    "Based on Kenya's October 2026 *Case Management Guidelines for Filovirus Disease*. "
+    "Ask about Ebola and related filovirus care; answers cite PDF pages."
 )
 st.caption(
     "General information only. For suspected infection, contact a health facility or "
     "public health team. Do not enter personal details."
 )
 
-source_path = os.getenv("GUIDELINE_SOURCE_DIR", DEFAULT_SOURCE)
+pdf_path = os.getenv("GUIDELINE_PDF_PATH", DEFAULT_PDF)
 model = DEFAULT_MODEL
 top_k = max(1, min(10, int(os.getenv("EVIDENCE_PASSAGES", "5"))))
 embed_model = os.getenv("OLLAMA_EMBED_MODEL", DEFAULT_EMBED_MODEL)
-warmup = start_model_warmup(model, embed_model, source_path)
+warmup = start_model_warmup(model, embed_model, pdf_path)
 
 
 @st.fragment(run_every="5s")
@@ -102,14 +102,14 @@ show_warmup_status()
 def show_sources(chunks: list[dict]) -> None:
     if not chunks:
         return
-    by_page: dict[tuple[str, int], list[str]] = {}
+    by_page: dict[int, list[str]] = {}
     for item in chunks:
-        texts = by_page.setdefault((item["source"], item["page"]), [])
+        texts = by_page.setdefault(item["page"], [])
         if item["text"] not in texts:
             texts.append(item["text"])
     with st.expander("View source passages"):
-        for (source, page), texts in by_page.items():
-            st.markdown(f"**{source}, PDF Page {page}**")
+        for page, texts in by_page.items():
+            st.markdown(f"**PDF Page {page}**")
             for text in texts:
                 st.write(text)
 
@@ -123,7 +123,7 @@ if st.session_state.messages and st.button("New chat", type="tertiary"):
 
 if not st.session_state.messages:
     with st.chat_message("assistant"):
-        st.markdown("Hello! Ask about the WHO documents on Ebola and Marburg care, IPC, diagnostics, therapeutics, or outbreak criteria.")
+        st.markdown("Hello! Ask about the guideline's scope, screening, isolation, or supportive care.")
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -154,7 +154,7 @@ if question := st.chat_input("Ask about the guideline", max_chars=500):
                 try:
                     with st.spinner("Checking the guideline..."):
                         warmup.result(timeout=180)
-                        result = SimpleAssistantRAG(source_path, model).ask(
+                        result = SimpleAssistantRAG(pdf_path, model).ask(
                             SimpleAssistantRequest(question, top_k, model, earlier_questions)
                         )
                 except Exception:

@@ -1,4 +1,4 @@
-"""Extract all WHO guideline PDFs with document-aware page citations."""
+"""Extract guideline text with PDF page numbers for citations."""
 
 from functools import lru_cache
 from pathlib import Path
@@ -6,11 +6,12 @@ from pathlib import Path
 from pypdf import PdfReader
 
 
-DEFAULT_SOURCE = "who_guidelines"
+DEFAULT_PDF = "Final Case Management Guidelines for Ebola Virus- 23102026 V5.pdf"
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=4)
 def _read_pdf(path: Path, mtime_ns: int, size: int) -> tuple[tuple[int, str], ...]:
+    """Reuse extracted pages until the PDF's timestamp or size changes."""
     reader = PdfReader(str(path))
     return tuple(
         (number, text.strip())
@@ -20,26 +21,18 @@ def _read_pdf(path: Path, mtime_ns: int, size: int) -> tuple[tuple[int, str], ..
 
 
 class GuidelineRetriever:
-    def __init__(self, source_path: str = DEFAULT_SOURCE):
-        self.source_path = Path(source_path)
+    def __init__(self, pdf_path: str = DEFAULT_PDF):
+        self.pdf_path = Path(pdf_path)
 
     def read_and_chunk(self) -> list[dict]:
-        if self.source_path.is_dir():
-            paths = sorted(self.source_path.glob("*.pdf"))
-        elif self.source_path.is_file() and self.source_path.suffix.lower() == ".pdf":
-            paths = [self.source_path]
-        else:
-            paths = []
-        if not paths:
-            raise FileNotFoundError(f"No WHO guideline PDFs found in: {self.source_path}")
-        pages = []
-        for file in paths:
-            path = file.resolve()
-            stat = path.stat()
-            pages.extend(
-                {"page": number, "text": text, "source": path.name}
-                for number, text in _read_pdf(path, stat.st_mtime_ns, stat.st_size)
-            )
+        if not self.pdf_path.is_file():
+            raise FileNotFoundError(f"Guideline PDF not found: {self.pdf_path}")
+        path = self.pdf_path.resolve()
+        stat = path.stat()
+        pages = [
+            {"page": number, "text": text, "source": path.name}
+            for number, text in _read_pdf(path, stat.st_mtime_ns, stat.st_size)
+        ]
         if not pages:
-            raise ValueError("The WHO guideline PDFs have no extractable text.")
+            raise ValueError("The guideline PDF has no extractable text.")
         return pages
